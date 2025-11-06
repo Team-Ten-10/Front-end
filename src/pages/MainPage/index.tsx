@@ -35,7 +35,9 @@ const MainPage = () => {
   const [selectedPlace, setSelectedPlace] = useState<PlaceDetail | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
-  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+  const [, setIsLoadingPlaces] = useState(false);
+
+  console.log(userLocation.lat, userLocation.lng)
 
   useEffect(() => {
     // 사용자 위치 가져오기
@@ -87,13 +89,7 @@ const MainPage = () => {
     setRoutePoints([]);
     try {
       await placeApi.loadPlacesData(userLocation.lat, userLocation.lng, 20)
-      const recommended = await placeApi.recommendPlaces({
-        category,
-        latitude: userLocation.lat,
-        longitude: userLocation.lng,
-        radiusKm: 20,
-        minAccessibilityScore: 80,
-      });
+      const recommended = await placeApi.getPlacesByCategory(category, userLocation.lat, userLocation.lng)
       setPlaces(sortByDistance(recommended));
     } catch (error) {
       console.error("추천 장소 조회 실패:", error);
