@@ -16,11 +16,15 @@ import {
   Palette,
   Mic,
   MicOff,
+  CircleParking,
+  User,
+  PersonStanding
 } from "lucide-react";
 import FilterChipButton from "./FilterChipButton";
 import type { Category } from "../../types/place/place.type";
 import placeApi from "../../api/place/place.api";
 import type { PlaceDetail } from "../../types/place/place.type";
+import restroomIcon from "../../assets/icons/restroom.svg";
 
 interface SearchBarProps {
   onSearch: (query: string, category?: string) => void;
@@ -101,6 +105,9 @@ const SearchBar = ({
     setActiveFilter(null); // 카테고리 선택 시 필터 해제
     if (value) {
       onCategorySelectAndRecommend(value as Category);
+    } else {
+      // 전체 선택 시 초기 주변 장소 표시
+      onSearch("", "");
     }
   };
 
@@ -299,7 +306,7 @@ const SearchBar = ({
                               {s.categoryDisplayName && (
                                 <span className="text-xs text-gray-300">•</span>
                               )}
-                              <span className="text-xs text-blue-600 font-medium">
+                              <span className="text-xs text-green-600 font-medium">
                                 {formatDistance(distance)}
                               </span>
                             </>
@@ -360,24 +367,40 @@ const SearchBar = ({
       </div>
 
       {/* 빠른 필터 칩 */}
-      <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
-        <FilterChipButton
+      <div className="flex gap-2 mt-3 overflow-x-auto overflow-scroll no-scrollbar">
+        {/* <FilterChipButton
           label="휠체어 접근 가능"
           filterType="wheelchair"
           isActive={activeFilter === "wheelchair"}
           onClick={handleFilterClick}
-        />
+        /> */}
         <FilterChipButton
           label="내 주변"
           filterType="nearby"
           isActive={activeFilter === "nearby"}
           onClick={handleFilterClick}
+          icon={User}
         />
         <FilterChipButton
           label="높은 접근성"
           filterType="highAccessibility"
           isActive={activeFilter === "highAccessibility"}
           onClick={handleFilterClick}
+          icon={PersonStanding}
+        />
+        <FilterChipButton
+          label="장애인 화장실"
+          filterType="accessible-restroom"
+          isActive={activeFilter === "accessible-restroom"}
+          onClick={handleFilterClick}
+          icon={restroomIcon}
+        />
+        <FilterChipButton
+          label="장애인 주차장"
+          filterType="accessible-parking"
+          isActive={activeFilter === "accessible-parking"}
+          onClick={handleFilterClick}
+          icon={CircleParking}
         />
       </div>
     </div>

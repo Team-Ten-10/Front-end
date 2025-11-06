@@ -27,7 +27,7 @@ const PlaceDetailSheet = ({
   const [activeTab, setActiveTab] = useState<"info" | "reviews">("info");
 
   // 드래그 관련 상태
-  const [sheetHeight, setSheetHeight] = useState<40 | 80>(40);
+  const [sheetHeight, setSheetHeight] = useState<40 | 40 | 80>(40);
   const [isDragging, setIsDragging] = useState(false);
   const [startY, setStartY] = useState(0);
   const [currentY, setCurrentY] = useState(0);
@@ -104,7 +104,7 @@ const PlaceDetailSheet = ({
         const threshold = 50;
 
         if (deltaY > threshold) {
-          setSheetHeight(30);
+          setSheetHeight(40);
         } else if (deltaY < -threshold) {
           setSheetHeight(80);
         }
@@ -182,10 +182,10 @@ const PlaceDetailSheet = ({
           </button>
           <button
             onClick={() => {
-              setSheetHeight(30);
+              setSheetHeight(40);
               onSetDestination?.();
             }}
-            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
           >
             도착
           </button>
@@ -198,7 +198,7 @@ const PlaceDetailSheet = ({
               onClick={() => setActiveTab("info")}
               className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
                 activeTab === "info"
-                  ? "border-blue-600 text-blue-600"
+                  ? "border-green-600 text-green-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -211,7 +211,7 @@ const PlaceDetailSheet = ({
               }}
               className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
                 activeTab === "reviews"
-                  ? "border-blue-600 text-blue-600"
+                  ? "border-green-600 text-green-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -229,37 +229,6 @@ const PlaceDetailSheet = ({
             {place.description && (
               <p className="text-sm text-gray-700">{place.description}</p>
             )}
-
-            {/* 연락 정보 */}
-            <div className="space-y-3">
-              {place.address && (
-                <div className="flex gap-3">
-                  <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 mb-0.5">주소</p>
-                    <p className="text-sm text-gray-900">{place.address}</p>
-                  </div>
-                </div>
-              )}
-              {place.contactNumber && (
-                <div className="flex gap-3">
-                  <Phone className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 mb-0.5">연락처</p>
-                    <p className="text-sm text-gray-900">{place.contactNumber}</p>
-                  </div>
-                </div>
-              )}
-              {place.operatingHours && (
-                <div className="flex gap-3">
-                  <Clock className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 mb-0.5">운영시간</p>
-                    <p className="text-sm text-gray-900">{place.operatingHours}</p>
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* 접근성 정보 */}
             {(place.accessibilityInfo || place.accessibilityScore !== undefined) && (
@@ -331,13 +300,44 @@ const PlaceDetailSheet = ({
                 )}
               </div>
             )}
+
+            {/* 연락 정보 */}
+            <div className="space-y-3 border-t pt-4">
+              {place.address && (
+                <div className="flex gap-3">
+                  <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 mb-0.5">주소</p>
+                    <p className="text-sm text-gray-900">{place.address}</p>
+                  </div>
+                </div>
+              )}
+              {place.contactNumber && (
+                <div className="flex gap-3">
+                  <Phone className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 mb-0.5">연락처</p>
+                    <p className="text-sm text-gray-900">{place.contactNumber}</p>
+                  </div>
+                </div>
+              )}
+              {place.operatingHours && (
+                <div className="flex gap-3">
+                  <Clock className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 mb-0.5">운영시간</p>
+                    <p className="text-sm text-gray-900">{place.operatingHours}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="px-5 py-4 space-y-4">
             {/* 리뷰 작성 버튼 */}
             <button
               onClick={() => setShowReviewForm(!showReviewForm)}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+              className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
             >
               {showReviewForm ? "작성 취소" : "리뷰 작성하기"}
             </button>
@@ -375,14 +375,14 @@ const PlaceDetailSheet = ({
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="리뷰를 작성해주세요..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                     rows={4}
                   />
                 </div>
                 <button
                   onClick={handleSubmitReview}
                   disabled={isSubmitting || !comment.trim()}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium rounded-lg transition-colors"
+                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-medium rounded-lg transition-colors"
                 >
                   {isSubmitting ? "등록 중..." : "리뷰 등록"}
                 </button>

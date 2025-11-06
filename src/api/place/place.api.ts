@@ -142,6 +142,46 @@ class PlaceApi {
     );
     return response.data;
   }
+
+  /**
+   * 장애인 화장실 있는 장소 조회
+   * GET /api/places/accessible-restroom
+   */
+  public async getAccessibleRestroomPlaces(
+    latitude: number,
+    longitude: number
+  ): Promise<PlaceDetail[]> {
+    const response = await customAxios.get<PlaceDetail[]>(
+      "/api/places/accessible-restroom",
+      {
+        params: {
+          latitude,
+          longitude,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * 장애인 주차장 있는 장소 조회
+   * GET /api/places/accessible-parking
+   */
+  public async getAccessibleParkingPlaces(
+    latitude: number,
+    longitude: number
+  ): Promise<PlaceDetail[]> {
+    const response = await customAxios.get<PlaceDetail[]>(
+      "/api/places/accessible-parking",
+      {
+        params: {
+          latitude,
+          longitude,
+        },
+      }
+    );
+    return response.data;
+  }
 }
 
 export default new PlaceApi();

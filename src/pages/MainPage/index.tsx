@@ -19,6 +19,8 @@ import { debounce } from "lodash";
 import { LocateFixed } from "lucide-react";
 import "./loading.css";
 import LoadingEffect from "../../components/common/LoadingEffect";
+import wheelChairImg from "../../assets/wheelChair.png";
+import restroomIcon from "../../assets/icons/restroom.svg";
 
 const MainPage = () => {
   const [userLocation, setUserLocation] = useState<{
@@ -39,6 +41,7 @@ const MainPage = () => {
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
   const [map, setMap] = useState<kakao.maps.Map | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   // 길찾기 입력 상태 추가
   const [startInput, setStartInput] = useState<string>(
@@ -216,6 +219,7 @@ const MainPage = () => {
     setIsLoadingPlaces(true);
     setSelectedPlace(null);
     setRoutePoints([]);
+    setActiveFilter(null);
     try {
       await placeApi.loadPlacesData(userLocation.lat, userLocation.lng, 20);
       const recommended = await placeApi.getPlacesByCategory(
@@ -275,6 +279,7 @@ const MainPage = () => {
     setIsLoadingPlaces(true);
     setSelectedPlace(null);
     setRoutePoints([]);
+    setActiveFilter(null);
 
     try {
       let results: PlaceDetail[] = [];
@@ -370,9 +375,22 @@ const MainPage = () => {
   };
 
   const handleFilterClick = async (filterType: string) => {
+    // 같은 필터를 다시 클릭하면 필터 해제하고 초기 장소 표시
+    if (activeFilter === filterType) {
+      setIsLoadingPlaces(true);
+      setActiveFilter(null);
+      try {
+        await loadNearbyPlaces(userLocation.lat, userLocation.lng, 5);
+      } finally {
+        setIsLoadingPlaces(false);
+      }
+      return;
+    }
+
     setIsLoadingPlaces(true);
     setSelectedPlace(null);
     setRoutePoints([]);
+    setActiveFilter(filterType);
 
     try {
       switch (filterType) {
@@ -400,6 +418,24 @@ const MainPage = () => {
             );
           // 거리순 정렬
           setPlaces(sortByDistance(highAccessibilityPlaces));
+          break;
+        }
+        case "accessible-restroom": {
+          const restroomPlaces = await placeApi.getAccessibleRestroomPlaces(
+            userLocation.lat,
+            userLocation.lng
+          );
+          // 거리순 정렬
+          setPlaces(sortByDistance(restroomPlaces));
+          break;
+        }
+        case "accessible-parking": {
+          const parkingPlaces = await placeApi.getAccessibleParkingPlaces(
+            userLocation.lat,
+            userLocation.lng
+          );
+          // 거리순 정렬
+          setPlaces(sortByDistance(parkingPlaces));
           break;
         }
       }
@@ -473,14 +509,12 @@ const MainPage = () => {
 
   if (!isLocationLoaded) {
     return (
-      <div className="relative w-full h-full min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">위치 정보를 가져오는 중...</p>
-      </div>
+      <div className="relative w-full h-full min-h-screen flex items-center justify-center"></div>
     );
   }
 
   return (
-    <div className="relative w-full h-full min-h-screen">
+    <div className="relative w-full h-full flex-1 overflow-hidden">
       <KakaoMap
         center={mapCenter}
         style={{ width: "100%", height: "100%", position: "absolute" }}
@@ -490,45 +524,120 @@ const MainPage = () => {
       >
         {/* 사용자 현재 위치 - 파란색 원 */}
         <CustomOverlayMap position={userLocation}>
-          <div
+          {/* <div
             style={{
               width: "20px",
               height: "20px",
               borderRadius: "50%",
-              backgroundColor: "#4285F4",
+              backgroundColor: "#16A34A",
               border: "3px solid white",
               boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
               transform: "translate(-50%, -50%)",
             }}
-          />
+          /> */}
+          <img src={wheelChairImg} alt="" />
         </CustomOverlayMap>
 
         {/* 장소 마커들 */}
-        {places.map((place, index) => (
-          <MapMarker
-            key={place.id ? `place-${place.id}` : `place-idx-${index}`}
-            position={{ lat: place.latitude, lng: place.longitude }}
-            onClick={() => handlePlaceClick(place)}
-            image={{
-              src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png",
-              size: { width: 24, height: 35 },
-            }}
-          />
-        ))}
+        {places.map((place, index) => {
+          // 화장실 또는 주차장 필터일 때 커스텀 마커 표시
+          if (
+            activeFilter === "accessible-restroom" ||
+            activeFilter === "accessible-parking"
+          ) {
+            const isRestroom = activeFilter === "accessible-restroom";
+            return (
+              <CustomOverlayMap
+                key={place.id ? `place-${place.id}` : `place-idx-${index}`}
+                position={{ lat: place.latitude, lng: place.longitude }}
+              >
+                <div
+                  onClick={() => handlePlaceClick(place)}
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    backgroundColor: "#FF6347",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "3px solid white",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                    transform: "translate(-50%, -50%)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {isRestroom ? (
+                    <img
+                      src={restroomIcon}
+                      alt=""
+                      style={{
+                        width: "20px",
+                        height: "20px",
+                        filter: "brightness(0) invert(1)",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        color: "white",
+                        fontSize: "18px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      P
+                    </span>
+                  )}
+                </div>
+              </CustomOverlayMap>
+            );
+          }
 
-        {/* 경로 표시 */}
-        {routePoints.length > 0 && (
-          <Polyline
-            path={routePoints.map((point) => ({
-              lat: point.lat,
-              lng: point.lng,
-            }))}
-            strokeWeight={5}
-            strokeColor="#4285F4"
-            strokeOpacity={0.7}
-            strokeStyle="solid"
-          />
-        )}
+          // 기본 마커
+          return (
+            <MapMarker
+              key={place.id ? `place-${place.id}` : `place-idx-${index}`}
+              position={{ lat: place.latitude, lng: place.longitude }}
+              onClick={() => handlePlaceClick(place)}
+              image={{
+                src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png",
+                size: { width: 24, height: 35 },
+              }}
+            />
+          );
+        })}
+
+        {/* 경로 표시 - 경사도에 따라 색상 구분 */}
+        {routePoints.length > 0 &&
+          routePoints.map((point, index) => {
+            // 마지막 점은 선을 그릴 필요 없음
+            if (index === routePoints.length - 1) return null;
+
+            const nextPoint = routePoints[index + 1];
+            const slope = Math.abs(point.slope);
+
+            // 경사도에 따른 색상 결정
+            let color = "#166534"; // 기본 녹색 (5 이상)
+            if (slope < 2.5) {
+              color = "#22C55E"; // 초록색 계열
+            } else if (slope >= 2.5 && slope < 5) {
+              color = "#EAB308"; // 노란색 계열
+            }
+
+            return (
+              <Polyline
+                key={`route-${index}`}
+                path={[
+                  { lat: point.lat, lng: point.lng },
+                  { lat: nextPoint.lat, lng: nextPoint.lng },
+                ]}
+                strokeWeight={5}
+                strokeColor={color}
+                strokeOpacity={0.8}
+                strokeStyle="solid"
+              />
+            );
+          })}
       </KakaoMap>
 
       <div className="absolute top-4 left-4 right-4 z-10">
@@ -541,8 +650,6 @@ const MainPage = () => {
         />
       </div>
 
-    
-
       <div className="flex flex-col gap-2.5 absolute z-1 top-[100px] right-0 p-2.5">
         <button
           className="flex justify-center items-center cursor-pointer rounded-full w-[45px] h-[45px] bg-white shadow-[0_0_8px_#00000025]"
@@ -553,9 +660,7 @@ const MainPage = () => {
       </div>
 
       {/* 로딩 인디케이터 */}
-      {isLoadingPlaces && (
-        <LoadingEffect />
-      )}
+      {isLoadingPlaces && <LoadingEffect />}
 
       {/* 검색 결과 없음
       {!isLoadingPlaces && places.length === 0 && (
