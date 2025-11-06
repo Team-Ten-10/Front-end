@@ -7,16 +7,18 @@ import {
 } from "react-kakao-maps-sdk";
 import SearchBar from "../../components/main/SearchBar";
 import PlaceDetailSheet from "../../components/main/PlaceDetailSheet";
+import AiAgent from "../../components/main/AiAgent";
 import placeApi from "../../api/place/place.api";
 import routeApi from "../../api/route/route.api";
 import type {
   PlaceDetail,
   RecommendRequest,
   Category,
+  AIRecommendedPlace,
 } from "../../types/place/place.type";
 import type { RoutePoint } from "../../types/route/route.type";
 import { debounce } from "lodash";
-import { LocateFixed } from "lucide-react";
+import { LocateFixed, Bot } from "lucide-react";
 import "./loading.css";
 import LoadingEffect from "../../components/common/LoadingEffect";
 import wheelChairImg from "../../assets/wheelChair.png";
@@ -42,6 +44,7 @@ const MainPage = () => {
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
   const [map, setMap] = useState<kakao.maps.Map | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [isOpenAiWindow, setIsOpenAiWindow] = useState<boolean>(false);
 
   // 길찾기 입력 상태 추가
   const [startInput, setStartInput] = useState<string>(
@@ -499,6 +502,30 @@ const MainPage = () => {
     };
   }, [endInput, userLocation]);
 
+  const handleOpenAiWindow = () => {
+    setIsOpenAiWindow(true);
+  };
+
+  const handleCloseAiWindow = () => {
+    setIsOpenAiWindow(false);
+  };
+
+  const handleAiPlaceSelect = (place: AIRecommendedPlace) => {
+    // AI 추천 장소를 PlaceDetail 형식으로 변환
+    const placeDetail: PlaceDetail = {
+      id: place.placeId,
+      name: place.name,
+      description: place.description,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      category: place.category as Category,
+      accessibilityScore: place.accessibilityScore,
+    };
+
+    // 지도에 장소 표시
+    handlePlaceClick(placeDetail);
+  };
+
   const handleSelectEndSuggestion = (place: PlaceDetail) => {
     setEndInput(place.name);
     setEndSelectedPlace(place);
@@ -522,20 +549,85 @@ const MainPage = () => {
         onCreate={setMap}
         onCenterChanged={updateCenterWhenMapMoved}
       >
-        {/* 사용자 현재 위치 - 파란색 원 */}
+        {/* 사용자 현재 위치 - 휠체어 아이콘 */}
         <CustomOverlayMap position={userLocation}>
-          {/* <div
+          <div
             style={{
-              width: "20px",
-              height: "20px",
-              borderRadius: "50%",
-              backgroundColor: "#16A34A",
-              border: "3px solid white",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-              transform: "translate(-50%, -50%)",
+              transform: "translate(-25%, -20%)",
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "4px",
             }}
-          /> */}
-          <img src={wheelChairImg} alt="" />
+          >
+            {/* 마커 컨테이너 */}
+            <div
+              style={{
+                position: "relative",
+                width: "70px",
+                height: "70px",
+              }}
+            >
+              {/* 펄스 효과 - 외부 원 */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "60px",
+                  height: "60px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(34, 197, 94, 0.2)",
+                  animation: "pulse 2s ease-out infinite",
+                }}
+              />
+              {/* 내부 원 - 흰색 배경 */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "50%",
+                  backgroundColor: "white",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "6px",
+                }}
+              >
+                <img
+                  src={wheelChairImg}
+                  alt="현재 위치"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
+                />
+              </div>
+            </div>
+            {/* 라벨 */}
+            <div
+              style={{
+                backgroundColor: "rgba(22, 163, 74, 0.95)",
+                color: "white",
+                padding: "4px 8px",
+                borderRadius: "12px",
+                fontSize: "11px",
+                fontWeight: "600",
+                whiteSpace: "nowrap",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+              }}
+            >
+              내 위치
+            </div>
+          </div>
         </CustomOverlayMap>
 
         {/* 장소 마커들 */}
@@ -617,7 +709,7 @@ const MainPage = () => {
             const slope = Math.abs(point.slope);
 
             // 경사도에 따른 색상 결정
-            let color = "#166534"; // 기본 녹색 (5 이상)
+            let color = "#ff4d4d"; // 기본 녹색 (5 이상)
             if (slope < 2.5) {
               color = "#22C55E"; // 초록색 계열
             } else if (slope >= 2.5 && slope < 5) {
@@ -650,12 +742,20 @@ const MainPage = () => {
         />
       </div>
 
-      <div className="flex flex-col gap-2.5 absolute z-1 top-[100px] right-0 p-2.5">
+      <div className="flex flex-col gap-2.5 absolute z-1 top-[120px] right-0 p-2.5">
         <button
-          className="flex justify-center items-center cursor-pointer rounded-full w-[45px] h-[45px] bg-white shadow-[0_0_8px_#00000025]"
+          className="flex justify-center items-center cursor-pointer rounded-full w-[50px] h-[50px] bg-white shadow-[0_0_8px_#00000025]"
           onClick={setCenterToMyPosition}
         >
           <LocateFixed width={25} height={25} />
+        </button>
+      </div>
+      <div className="flex flex-col gap-2.5 absolute z-1 bottom-0 right-0 p-2.5">
+        <button
+          className="flex justify-center items-center cursor-pointer rounded-full w-[70px] h-[70px] bg-white shadow-[0_0_8px_#00000025]"
+          onClick={handleOpenAiWindow}
+        >
+          <Bot width={35} height={35} />
         </button>
       </div>
 
@@ -686,6 +786,14 @@ const MainPage = () => {
           onSetDestination={handleSetDestination}
         />
       )}
+
+      {/* AI Agent 컴포넌트 */}
+      <AiAgent
+        isOpen={isOpenAiWindow}
+        onClose={handleCloseAiWindow}
+        userLocation={userLocation}
+        onPlaceSelect={handleAiPlaceSelect}
+      />
     </div>
   );
 };
