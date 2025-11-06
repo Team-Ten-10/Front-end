@@ -10,10 +10,9 @@ const Router = () => {
       <Route
         path="/"
         element={
-          // <PrivateRoute>
-          //   <MainPage />
-          // </PrivateRoute>
-          <MainPage />
+          <PrivateRoute>
+            <MainPage />
+          </PrivateRoute>
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

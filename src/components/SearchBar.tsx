@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Search,
   ChevronDown,
@@ -13,6 +13,8 @@ import {
   MapPin,
   Dumbbell,
   Palette,
+  Mic,
+  MicOff,
 } from "lucide-react";
 
 interface SearchBarProps {
@@ -23,6 +25,8 @@ const SearchBar = ({ onSearch }: SearchBarProps) => {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showCategories, setShowCategories] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const categories = [
     { value: "", label: "전체", Icon: LayoutGrid },
@@ -46,6 +50,49 @@ const SearchBar = ({ onSearch }: SearchBarProps) => {
   const handleCategorySelect = (value: string) => {
     setSelectedCategory(value);
     setShowCategories(false);
+  };
+
+  const startVoiceRecognition = () => {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      alert("음성 인식을 지원하지 않는 브라우저입니다.");
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "ko-KR";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setQuery(transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      alert("음성 인식에 실패했습니다.");
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const stopVoiceRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
   };
 
   const currentCategory = categories.find((cat) => cat.value === selectedCategory);
@@ -78,6 +125,22 @@ const SearchBar = ({ onSearch }: SearchBarProps) => {
                 placeholder="장소, 주소 검색"
                 className="flex-1 text-base focus:outline-none"
               />
+
+              <button
+                type="button"
+                onClick={isListening ? stopVoiceRecognition : startVoiceRecognition}
+                className={`ml-2 p-2 rounded-full transition-colors ${
+                  isListening
+                    ? "bg-red-50 hover:bg-red-100 text-red-600"
+                    : "hover:bg-gray-50 text-gray-600"
+                }`}
+              >
+                {isListening ? (
+                  <MicOff className="w-5 h-5" />
+                ) : (
+                  <Mic className="w-5 h-5" />
+                )}
+              </button>
 
               <button
                 type="submit"

@@ -16,11 +16,13 @@ const requestInterceptor = (
 
     if (!isPublicPath) {
       const accessToken = token.getToken(ACCESS_TOKEN_KEY);
-      const refreshToken = token.getToken(REFRESH_TOKEN_KEY);
 
-      if (!accessToken || !refreshToken) {
-        console.error("Access token or refresh token not found.");
-        window.location.href = "/login";
+      if (!accessToken) {
+        console.error("Access token not found.");
+        // 현재 페이지가 이미 로그인 페이지가 아닌 경우에만 리다이렉트
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
       } else {
         config.headers[REQUEST_TOKEN_KEY] = `Bearer ${accessToken}`;
       }
