@@ -46,6 +46,34 @@ const SearchBar = ({
   const recognitionRef = useRef<any>(null);
   const [isSuggestLoading, setIsSuggestLoading] = useState(false);
 
+  // 거리 계산 함수 (Haversine formula)
+  const calculateDistance = (
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number
+  ): number => {
+    const R = 6371; // 지구 반지름 (km)
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // 거리를 사람이 읽기 쉬운 형태로 변환
+  const formatDistance = (distanceKm: number): string => {
+    if (distanceKm < 1) {
+      return `${Math.round(distanceKm * 1000)}m`;
+    }
+    return `${distanceKm.toFixed(1)}km`;
+  };
+
   const categories = [
     { value: "", label: "전체", Icon: LayoutGrid },
     { value: "PARK", label: "공원", Icon: TreeDeciduous },
@@ -233,20 +261,60 @@ const SearchBar = ({
 
           {/* 자동완성 제안 박스 */}
           {suggestions.length > 0 && (
-            <div className="absolute left-4 right-4 mt-1 bg-white border rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto">
-              {suggestions.map((s) => (
-                <button
-                  key={s.id ?? `${s.latitude}-${s.longitude}-${s.name}`}
-                  onClick={() => handleSuggestionClick(s)}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="text-sm font-medium">{s.name}</div>
-                  <div className="text-xs text-gray-500">
-                    {s.address ??
-                      `${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)}`}
-                  </div>
-                </button>
-              ))}
+            <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+              {isSuggestLoading ? (
+                <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                  검색 중...
+                </div>
+              ) : (
+                suggestions.map((s) => {
+                  const distance = userLocation
+                    ? calculateDistance(
+                        userLocation.lat,
+                        userLocation.lng,
+                        s.latitude,
+                        s.longitude
+                      )
+                    : null;
+
+                  return (
+                    <button
+                      key={s.id ?? `${s.latitude}-${s.longitude}-${s.name}`}
+                      onClick={() => handleSuggestionClick(s)}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-start gap-3"
+                    >
+                      <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 truncate">
+                          {s.name}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {s.categoryDisplayName && (
+                            <span className="text-xs text-gray-500">
+                              {s.categoryDisplayName}
+                            </span>
+                          )}
+                          {distance !== null && (
+                            <>
+                              {s.categoryDisplayName && (
+                                <span className="text-xs text-gray-300">•</span>
+                              )}
+                              <span className="text-xs text-blue-600 font-medium">
+                                {formatDistance(distance)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {s.address && (
+                          <div className="text-xs text-gray-400 mt-1 truncate">
+                            {s.address}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
 

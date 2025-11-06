@@ -576,7 +576,6 @@ const MainPage = () => {
           place={selectedPlace}
           onClose={() => {
             setSelectedPlace(null);
-            setRoutePoints([]);
           }}
           isLoadingRoute={isLoadingRoute}
           onSetDestination={handleSetDestination}

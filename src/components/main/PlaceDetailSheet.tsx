@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { PlaceDetail } from "../../types/place/place.type";
 import type { ReviewResponse } from "../../types/review/review.type";
 import LoadingEffect from "../common/LoadingEffect";
@@ -25,6 +25,13 @@ const PlaceDetailSheet = ({
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"info" | "reviews">("info");
+
+  // 드래그 관련 상태
+  const [sheetHeight, setSheetHeight] = useState<40 | 80>(40);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startY, setStartY] = useState(0);
+  const [currentY, setCurrentY] = useState(0);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   // 평균 별점 계산
   const averageRating =
@@ -72,12 +79,65 @@ const PlaceDetailSheet = ({
     }
   };
 
+  // 드래그 시작
+  const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
+    setIsDragging(true);
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    setStartY(clientY);
+    setCurrentY(clientY);
+  };
+
+  // 드래그 이벤트 리스너 등록
+  useEffect(() => {
+    if (isDragging) {
+      const handleMove = (e: TouchEvent | MouseEvent) => {
+        if (!isDragging) return;
+        const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+        setCurrentY(clientY);
+      };
+
+      const handleEnd = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+
+        const deltaY = currentY - startY;
+        const threshold = 50;
+
+        if (deltaY > threshold) {
+          setSheetHeight(30);
+        } else if (deltaY < -threshold) {
+          setSheetHeight(80);
+        }
+      };
+
+      window.addEventListener("touchmove", handleMove);
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("touchend", handleEnd);
+      window.addEventListener("mouseup", handleEnd);
+
+      return () => {
+        window.removeEventListener("touchmove", handleMove);
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("touchend", handleEnd);
+        window.removeEventListener("mouseup", handleEnd);
+      };
+    }
+  }, [isDragging, currentY, startY]);
+
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-20 max-h-[85vh] flex flex-col">
+    <div
+      ref={sheetRef}
+      className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-20 flex flex-col transition-all duration-300 ease-out"
+      style={{ height: `${sheetHeight}vh` }}
+    >
       {/* 헤더 */}
-      <div className="flex-shrink-0">
+      <div className="shrink-0">
         {/* 드래그 핸들 */}
-        <div className="flex justify-center pt-3 pb-2">
+        <div
+          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+          onTouchStart={handleDragStart}
+          onMouseDown={handleDragStart}
+        >
           <div className="w-12 h-1 bg-gray-300 rounded-full" />
         </div>
 
@@ -121,7 +181,10 @@ const PlaceDetailSheet = ({
             출발
           </button>
           <button
-            onClick={onSetDestination}
+            onClick={() => {
+              setSheetHeight(30);
+              onSetDestination?.();
+            }}
             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
           >
             도착
@@ -142,7 +205,10 @@ const PlaceDetailSheet = ({
               정보
             </button>
             <button
-              onClick={() => setActiveTab("reviews")}
+              onClick={() => {
+                setActiveTab("reviews");
+                setSheetHeight(80);
+              }}
               className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
                 activeTab === "reviews"
                   ? "border-blue-600 text-blue-600"
