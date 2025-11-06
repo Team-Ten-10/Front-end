@@ -43,15 +43,11 @@ const LoginPage = () => {
         setError("로그인 응답에 토큰이 없습니다.");
       }
     } catch (err) {
-      const errorMessage = (
-        err as { response?: { data?: { message?: string } } }
-      ).response?.data?.message;
+      const errorMessage = (err as { response?: { data?: { message?: string } } })
+        .response?.data?.message;
+
       if (errorMessage) {
         setError(errorMessage);
-      } else if ((err as Error).message?.includes("ERR_ADDRESS_UNREACHABLE")) {
-        setError("서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
-      } else if ((err as Error).message?.includes("Network Error")) {
-        setError("네트워크 오류가 발생했습니다. 서버 주소를 확인해주세요.");
       } else {
         setError("로그인에 실패했습니다.");
       }
