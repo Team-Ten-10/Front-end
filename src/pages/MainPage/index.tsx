@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Map as KakaoMap,
   CustomOverlayMap,
+  MapMarker,
   Polyline,
 } from "react-kakao-maps-sdk";
 import SearchBar from "../../components/main/SearchBar";
@@ -631,8 +632,6 @@ const MainPage = () => {
 
         {/* 장소 마커들 */}
         {places.map((place, index) => {
-          const isSelected = selectedPlace?.id === place.id;
-
           // 화장실 또는 주차장 필터일 때 커스텀 마커 표시
           if (
             activeFilter === "accessible-restroom" ||
@@ -643,23 +642,21 @@ const MainPage = () => {
               <CustomOverlayMap
                 key={place.id ? `place-${place.id}` : `place-idx-${index}`}
                 position={{ lat: place.latitude, lng: place.longitude }}
-                zIndex={isSelected ? 100 : 1}
               >
                 <div
                   onClick={() => handlePlaceClick(place)}
                   style={{
-                    width: isSelected ? "50px" : "40px",
-                    height: isSelected ? "50px" : "40px",
+                    width: "40px",
+                    height: "40px",
                     borderRadius: "50%",
                     backgroundColor: "#FF6347",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    border: isSelected ? "4px solid #22C55E" : "3px solid white",
-                    boxShadow: isSelected ? "0 4px 12px rgba(0,0,0,0.4)" : "0 2px 6px rgba(0,0,0,0.3)",
+                    border: "3px solid white",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
                     transform: "translate(-50%, -50%)",
                     cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
                   }}
                 >
                   {isRestroom ? (
@@ -667,19 +664,17 @@ const MainPage = () => {
                       src={restroomIcon}
                       alt=""
                       style={{
-                        width: isSelected ? "25px" : "20px",
-                        height: isSelected ? "25px" : "20px",
+                        width: "20px",
+                        height: "20px",
                         filter: "brightness(0) invert(1)",
-                        transition: "all 0.2s ease-in-out",
                       }}
                     />
                   ) : (
                     <span
                       style={{
                         color: "white",
-                        fontSize: isSelected ? "22px" : "18px",
+                        fontSize: "18px",
                         fontWeight: "bold",
-                        transition: "all 0.2s ease-in-out",
                       }}
                     >
                       P
@@ -690,33 +685,17 @@ const MainPage = () => {
             );
           }
 
-          // 기본 마커 - CustomOverlayMap으로 변경하여 선택 시 크기 조절 가능하게
+          // 기본 마커
           return (
-            <CustomOverlayMap
+            <MapMarker
               key={place.id ? `place-${place.id}` : `place-idx-${index}`}
               position={{ lat: place.latitude, lng: place.longitude }}
-              zIndex={isSelected ? 100 : 1}
-            >
-              <div
-                onClick={() => handlePlaceClick(place)}
-                style={{
-                  transform: "translate(-50%, -100%)",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                }}
-              >
-                <img
-                  src="https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png"
-                  alt="marker"
-                  style={{
-                    width: isSelected ? "36px" : "24px",
-                    height: isSelected ? "52px" : "35px",
-                    filter: isSelected ? "drop-shadow(0 4px 8px rgba(0,0,0,0.3))" : "none",
-                    transition: "all 0.2s ease-in-out",
-                  }}
-                />
-              </div>
-            </CustomOverlayMap>
+              onClick={() => handlePlaceClick(place)}
+              image={{
+                src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png",
+                size: { width: 24, height: 35 },
+              }}
+            />
           );
         })}
 
