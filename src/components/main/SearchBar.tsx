@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { debounce } from "lodash";
 import {
   Search,
   ChevronDown,
@@ -18,24 +19,32 @@ import {
 } from "lucide-react";
 import FilterChipButton from "./FilterChipButton";
 import type { Category } from "../../types/place/place.type";
+import placeApi from "../../api/place/place.api";
+import type { PlaceDetail } from "../../types/place/place.type";
 
 interface SearchBarProps {
   onSearch: (query: string, category?: string) => void;
   onFilterClick?: (filterType: string) => void;
   onCategorySelectAndRecommend: (category: Category) => void;
+  userLocation?: { lat: number; lng: number };
+  onPlaceSelect?: (place: PlaceDetail) => void;
 }
 
 const SearchBar = ({
   onSearch,
   onFilterClick,
   onCategorySelectAndRecommend,
+  userLocation,
+  onPlaceSelect,
 }: SearchBarProps) => {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showCategories, setShowCategories] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceDetail[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const [isSuggestLoading, setIsSuggestLoading] = useState(false);
 
   const categories = [
     { value: "", label: "전체", Icon: LayoutGrid },
@@ -54,6 +63,8 @@ const SearchBar = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(query, selectedCategory || undefined);
+    // 폼 제출 시 제안 숨김
+    setSuggestions([]);
   };
 
   const handleCategorySelect = (value: string) => {
@@ -65,10 +76,39 @@ const SearchBar = ({
     }
   };
 
-  const handleFilterClick = (filterType: string) => {
-    setActiveFilter(activeFilter === filterType ? null : filterType);
-    onFilterClick?.(filterType);
-  };
+  // 쿼리 변경 시 자동완성(제안) 업데이트 (디바운스)
+  useEffect(() => {
+    if (!query || query.trim().length < 2 || !userLocation) {
+      setSuggestions([]);
+      return;
+    }
+
+    const fetchSuggestions = debounce(async (q: string) => {
+      try {
+        setIsSuggestLoading(true);
+        // 주변 장소를 넓은 반경으로 가져와 클라이언트에서 필터링
+        const nearby = await placeApi.getNearbyPlaces(
+          userLocation!.lat,
+          userLocation!.lng,
+          50
+        );
+        const filtered = nearby.filter((p) =>
+          p.name.toLowerCase().includes(q.toLowerCase())
+        );
+        setSuggestions(filtered.slice(0, 8)); // 최대 8개 제안
+      } catch (err) {
+        console.error("제안 불러오기 실패:", err);
+        setSuggestions([]);
+      } finally {
+        setIsSuggestLoading(false);
+      }
+    }, 300);
+
+    fetchSuggestions(query);
+    return () => {
+      fetchSuggestions.cancel && fetchSuggestions.cancel();
+    };
+  }, [query, userLocation]);
 
   const startVoiceRecognition = () => {
     if (
@@ -122,6 +162,19 @@ const SearchBar = ({
     (cat) => cat.value === selectedCategory
   );
   const CurrentIcon = currentCategory?.Icon || LayoutGrid;
+
+  const handleSuggestionClick = (place: PlaceDetail) => {
+    setQuery(place.name);
+    setSuggestions([]);
+    // 부모로 선택된 장소 전달 (선택 시 바로 장소 상세/경로 표시를 기대)
+    onPlaceSelect?.(place);
+  };
+
+  // 필터 칩 클릭 처리: active 상태 토글 및 부모 콜백 호출
+  const handleFilterClick = (filterType: string) => {
+    setActiveFilter((prev) => (prev === filterType ? null : filterType));
+    onFilterClick?.(filterType);
+  };
 
   return (
     <div className="w-full">
@@ -177,6 +230,25 @@ const SearchBar = ({
               </button>
             </div>
           </form>
+
+          {/* 자동완성 제안 박스 */}
+          {suggestions.length > 0 && (
+            <div className="absolute left-4 right-4 mt-1 bg-white border rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto">
+              {suggestions.map((s) => (
+                <button
+                  key={s.id ?? `${s.latitude}-${s.longitude}-${s.name}`}
+                  onClick={() => handleSuggestionClick(s)}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="text-sm font-medium">{s.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {s.address ??
+                      `${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)}`}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* 카테고리 목록 */}
           {showCategories && (

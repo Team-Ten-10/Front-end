@@ -37,7 +37,134 @@ const MainPage = () => {
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [, setIsLoadingPlaces] = useState(false);
 
-  console.log(userLocation.lat, userLocation.lng)
+  // 길찾기 입력 상태 추가
+  const [startInput, setStartInput] = useState<string>(
+    `${userLocation.lat},${userLocation.lng}`
+  );
+  const [endInput, setEndInput] = useState<string>("");
+
+  // 도착 자동완성 상태
+  const [endSuggestions, setEndSuggestions] = useState<PlaceDetail[]>([]);
+  const [endSelectedPlace, setEndSelectedPlace] = useState<PlaceDetail | null>(
+    null
+  );
+  const [isEndSuggestLoading, setIsEndSuggestLoading] = useState(false);
+
+  // 좌표 문자열(예: "37.5665,126.978")을 파싱하는 유틸
+  const parseCoordString = (
+    input: string
+  ): { lat: number; lng: number } | null => {
+    if (!input) return null;
+    const parts = input.split(",").map((s) => s.trim());
+    if (parts.length !== 2) return null;
+    const lat = Number(parts[0]);
+    const lng = Number(parts[1]);
+    if (isNaN(lat) || isNaN(lng)) return null;
+    return { lat, lng };
+  };
+
+  // 서버에 쿼리파라미터(GET)로 요청을 보내는 헬퍼
+  const fetchAccessibleRoute = async (
+    startLat: number,
+    startLng: number,
+    endLat: number,
+    endLng: number
+  ) => {
+    return await routeApi.getAccessibleRoute(
+      startLat,
+      startLng,
+      endLat,
+      endLng
+    );
+  };
+
+  // 입력된 출발/도착 좌표로 경로 조회
+  const handleRouteSearch = async () => {
+    setIsLoadingRoute(true);
+    setSelectedPlace(null); // 장소 선택 초기화
+    try {
+      // 출발 처리: 좌표 문자열 우선
+      const start = parseCoordString(startInput);
+      if (!start) {
+        console.error(
+          "출발 좌표 형식이 잘못되었습니다. 'lat,lng' 형태로 입력하세요."
+        );
+        setRoutePoints([]);
+        return;
+      }
+
+      // 도착 처리 우선순위:
+      // 1) 사용자가 제안에서 선택한 장소(endSelectedPlace)와 이름이 일치하면 그 좌표 사용
+      // 2) endInput이 좌표 문자열이면 파싱해서 사용
+      // 3) 그 외에는 주변 장소에서 이름으로 찾아 첫 결과 사용
+      let endCoords = null;
+      if (endSelectedPlace && endSelectedPlace.name === endInput) {
+        endCoords = {
+          lat: endSelectedPlace.latitude,
+          lng: endSelectedPlace.longitude,
+        };
+      } else {
+        const parsedEnd = parseCoordString(endInput);
+        if (parsedEnd) {
+          endCoords = parsedEnd;
+        } else {
+          // 이름 검색으로 시도(주변 반경 크게 설정)
+          if (userLocation) {
+            const candidates = await placeApi.getNearbyPlaces(
+              userLocation.lat,
+              userLocation.lng,
+              50
+            );
+            const matched = candidates.find(
+              (p) =>
+                p.name.toLowerCase() === endInput.toLowerCase() ||
+                p.name.toLowerCase().includes(endInput.toLowerCase())
+            );
+            if (matched) {
+              endCoords = { lat: matched.latitude, lng: matched.longitude };
+              // 선택 정보 갱신
+              setEndSelectedPlace(matched);
+            }
+          }
+        }
+      }
+
+      if (!endCoords) {
+        console.error(
+          "도착 좌표를 찾을 수 없습니다. 이름 또는 'lat,lng' 형식으로 입력하세요."
+        );
+        setRoutePoints([]);
+        return;
+      }
+
+      // 지도 중심을 출발지로 이동
+      setMapCenter(start);
+
+      console.log(start.lat, start.lng, endCoords.lat, endCoords.lng);
+      // 서버에 GET 쿼리로 요청 전송
+      const route = await fetchAccessibleRoute(
+        start.lat,
+        start.lng,
+        endCoords.lat,
+        endCoords.lng
+      );
+      setRoutePoints(route.routePoint ?? []);
+    } catch (error) {
+      console.error("경로 조회 실패:", error);
+      setRoutePoints([]);
+    } finally {
+      setIsLoadingRoute(false);
+    }
+  };
+
+  const handleClearRoute = () => {
+    setRoutePoints([]);
+    setEndInput("");
+    setEndSuggestions([]);
+    setEndSelectedPlace(null);
+  };
+
+  console.log(userLocation.lat, userLocation.lng);
 
   useEffect(() => {
     // 사용자 위치 가져오기
@@ -48,6 +175,8 @@ const MainPage = () => {
           const location = { lat: latitude, lng: longitude };
           setUserLocation(location);
           setMapCenter(location);
+          // 위치를 가져온 뒤 출발 입력 기본값을 현재 위치로 세팅
+          setStartInput(`${location.lat},${location.lng}`);
           setIsLocationLoaded(true);
           // 위치를 가져온 후 주변 장소 로드
           loadNearbyPlaces(latitude, longitude);
@@ -88,8 +217,12 @@ const MainPage = () => {
     setSelectedPlace(null);
     setRoutePoints([]);
     try {
-      await placeApi.loadPlacesData(userLocation.lat, userLocation.lng, 20)
-      const recommended = await placeApi.getPlacesByCategory(category, userLocation.lat, userLocation.lng)
+      await placeApi.loadPlacesData(userLocation.lat, userLocation.lng, 20);
+      const recommended = await placeApi.getPlacesByCategory(
+        category,
+        userLocation.lat,
+        userLocation.lng
+      );
       setPlaces(sortByDistance(recommended));
     } catch (error) {
       console.error("추천 장소 조회 실패:", error);
@@ -165,8 +298,10 @@ const MainPage = () => {
         results = nearbyPlaces.filter(
           (place) =>
             place.name.toLowerCase().includes(query.toLowerCase()) ||
-            (place.address?.toLowerCase().includes(query.toLowerCase()) ?? false) ||
-            (place.description?.toLowerCase().includes(query.toLowerCase()) ?? false)
+            (place.address?.toLowerCase().includes(query.toLowerCase()) ??
+              false) ||
+            (place.description?.toLowerCase().includes(query.toLowerCase()) ??
+              false)
         );
       }
       // 카테고리 + 검색어 모두 입력한 경우
@@ -180,8 +315,10 @@ const MainPage = () => {
         results = categoryPlaces.filter(
           (place) =>
             place.name.toLowerCase().includes(query.toLowerCase()) ||
-            (place.address?.toLowerCase().includes(query.toLowerCase()) ?? false) ||
-            (place.description?.toLowerCase().includes(query.toLowerCase()) ?? false)
+            (place.address?.toLowerCase().includes(query.toLowerCase()) ??
+              false) ||
+            (place.description?.toLowerCase().includes(query.toLowerCase()) ??
+              false)
         );
       }
       // 아무것도 없으면 주변 장소 표시
@@ -207,14 +344,14 @@ const MainPage = () => {
     setMapCenter({ lat: place.latitude, lng: place.longitude });
 
     try {
-      // 사용자 위치에서 선택한 장소까지의 경로 가져오기
-      const route = await routeApi.getAccessibleRoute(
+      // 사용자 위치에서 선택한 장소까지의 경로 가져오기 (GET 쿼리 방식)
+      const route = await fetchAccessibleRoute(
         userLocation.lat,
         userLocation.lng,
         place.latitude,
         place.longitude
       );
-      setRoutePoints(route.routePoint);
+      setRoutePoints(route.routePoint ?? []);
     } catch (error) {
       console.error("경로 조회 실패:", error);
       setRoutePoints([]);
@@ -282,6 +419,49 @@ const MainPage = () => {
     []
   );
 
+  // 도착 입력 자동완성(디바운스)
+  useEffect(() => {
+    if (!endInput || endInput.trim().length < 2 || !userLocation) {
+      setEndSuggestions([]);
+      // 사용자가 직접 입력을 지웠다면 선택도 초기화
+      if (!endInput) setEndSelectedPlace(null);
+      return;
+    }
+
+    const fetch = debounce(async (q: string) => {
+      try {
+        setIsEndSuggestLoading(true);
+        const nearby = await placeApi.getNearbyPlaces(
+          userLocation.lat,
+          userLocation.lng,
+          50
+        );
+        const filtered = nearby.filter((p) =>
+          p.name.toLowerCase().includes(q.toLowerCase())
+        );
+        setEndSuggestions(filtered.slice(0, 8));
+      } catch (err) {
+        console.error("도착 자동완성 실패:", err);
+        setEndSuggestions([]);
+      } finally {
+        setIsEndSuggestLoading(false);
+      }
+    }, 300);
+
+    fetch(endInput);
+    return () => {
+      fetch.cancel && fetch.cancel();
+    };
+  }, [endInput, userLocation]);
+
+  const handleSelectEndSuggestion = (place: PlaceDetail) => {
+    setEndInput(place.name);
+    setEndSelectedPlace(place);
+    setEndSuggestions([]);
+    // 선택 시 편의상 지도 중심을 도착지로 이동
+    setMapCenter({ lat: place.latitude, lng: place.longitude });
+  };
+
   if (!isLocationLoaded) {
     return (
       <div className="relative w-full h-full min-h-screen flex items-center justify-center">
@@ -346,7 +526,80 @@ const MainPage = () => {
           onSearch={handleSearch}
           onFilterClick={handleFilterClick}
           onCategorySelectAndRecommend={recommendPlaces}
+          userLocation={userLocation}
+          onPlaceSelect={handlePlaceClick}
         />
+      </div>
+
+      {/* 길찾기 패널 */}
+      <div className="absolute top-[90px] left-4 z-20 bg-white p-3 rounded-md shadow-md w-[320px]">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium">길찾기</p>
+          <p className="text-xs text-gray-500">
+            {isLoadingRoute ? "로딩..." : ""}
+          </p>
+        </div>
+        <div className="flex gap-2 mb-2">
+          <input
+            className="flex-1 border rounded px-2 py-1 text-sm"
+            placeholder="출발 (lat,lng)"
+            value={startInput}
+            onChange={(e) => setStartInput(e.target.value)}
+          />
+          <button
+            className="text-sm px-2 py-1 bg-gray-100 rounded"
+            onClick={() =>
+              setStartInput(`${userLocation.lat},${userLocation.lng}`)
+            }
+            title="내 위치로 설정"
+          >
+            내위치
+          </button>
+        </div>
+        <div className="mb-3">
+          <input
+            className="w-full border rounded px-2 py-1 text-sm"
+            placeholder="도착 (장소명 또는 lat,lng)"
+            value={endInput}
+            onChange={(e) => {
+              setEndInput(e.target.value);
+              // 입력 도중 사용자가 직접 수정하면 선택된 장소 초기화(이름 불일치 대비)
+              setEndSelectedPlace(null);
+            }}
+          />
+          {/* 도착 자동완성 제안 목록 */}
+          {endSuggestions.length > 0 && (
+            <div className="mt-2 max-h-44 overflow-y-auto border rounded bg-white shadow-sm">
+              {endSuggestions.map((s) => (
+                <button
+                  key={s.id ?? `${s.latitude}-${s.longitude}-${s.name}`}
+                  onClick={() => handleSelectEndSuggestion(s)}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                >
+                  <div className="font-medium">{s.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {s.address ??
+                      `${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)}`}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            className="flex-1 bg-blue-500 text-white rounded py-1 text-sm"
+            onClick={handleRouteSearch}
+          >
+            경로 찾기
+          </button>
+          <button
+            className="flex-1 bg-gray-200 text-sm rounded py-1"
+            onClick={handleClearRoute}
+          >
+            지우기
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2.5 absolute z-1 top-[100px] right-0 p-2.5">

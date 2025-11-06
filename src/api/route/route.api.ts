@@ -12,7 +12,7 @@ class RouteApi {
     endLat: number,
     endLng: number
   ): Promise<RouteResponse> {
-    const response = await customAxios.get<RouteResponse>("/api/route", {
+    const response = await customAxios.get<RouteResponse>("/route", {
       params: {
         startLat,
         startLng,
@@ -20,6 +20,7 @@ class RouteApi {
         endLng,
       },
     });
+    console.log("RouteApi response:", response);
     return response.data;
   }
 }
