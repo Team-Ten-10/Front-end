@@ -86,12 +86,13 @@ const MainPage = () => {
     setSelectedPlace(null);
     setRoutePoints([]);
     try {
+      await placeApi.loadPlacesData(userLocation.lat, userLocation.lng, 20)
       const recommended = await placeApi.recommendPlaces({
         category,
         latitude: userLocation.lat,
         longitude: userLocation.lng,
-        radiusKm: 50,
-        minAccessibilityScore: 10,
+        radiusKm: 20,
+        minAccessibilityScore: 80,
       });
       setPlaces(sortByDistance(recommended));
     } catch (error) {
