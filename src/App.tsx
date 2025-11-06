@@ -1,5 +1,5 @@
 import { BrowserRouter } from "react-router-dom";
-import AppLayout from "./components/AppLayout";
+import AppLayout from "./components/common/AppLayout";
 import Router from "./routes/router";
 
 function App() {

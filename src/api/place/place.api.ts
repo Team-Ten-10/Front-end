@@ -4,6 +4,9 @@ import type {
   PlaceDetail,
   PlaceSimple,
   RecommendRequest,
+  AIRecommendRequest,
+  AIRecommendResponse,
+  LoadDataResponse,
 } from "../../types/place/place.type";
 
 class PlaceApi {
@@ -20,12 +23,35 @@ class PlaceApi {
   }
 
   /**
+   * AI 기반 장소 추천
+   * POST /api/places/recommend/ai
+   */
+  public async recommendPlacesWithAI(
+    data: AIRecommendRequest
+  ): Promise<AIRecommendResponse> {
+    const response = await customAxios.post<AIRecommendResponse>(
+      "/api/places/recommend/ai",
+      data
+    );
+    return response.data;
+  }
+
+  /**
    * 모든 휠체어 접근 가능 장소 조회
    * GET /api/places/wheelchair-accessible
    */
-  public async getWheelchairAccessiblePlaces(): Promise<PlaceDetail[]> {
+  public async getWheelchairAccessiblePlaces(
+    latitude: number,
+    longitude: number
+  ): Promise<PlaceDetail[]> {
     const response = await customAxios.get<PlaceDetail[]>(
-      "/api/places/wheelchair-accessible"
+      "/api/places/wheelchair-accessible",
+      {
+        params: {
+          latitude,
+          longitude,
+        },
+      }
     );
     return response.data;
   }
@@ -34,9 +60,19 @@ class PlaceApi {
    * 카테고리별 휠체어 접근 가능 장소 조회
    * GET /api/places/wheelchair-accessible/category/{category}
    */
-  public async getPlacesByCategory(category: Category): Promise<PlaceDetail[]> {
+  public async getPlacesByCategory(
+    category: Category,
+    latitude: number,
+    longitude: number
+  ): Promise<PlaceDetail[]> {
     const response = await customAxios.get<PlaceDetail[]>(
-      `/api/places/wheelchair-accessible/category/${category}`
+      `/api/places/wheelchair-accessible/category/${category}`,
+      {
+        params: {
+          latitude,
+          longitude,
+        },
+      }
     );
     return response.data;
   }
@@ -68,13 +104,39 @@ class PlaceApi {
    * GET /api/places/high-accessibility
    */
   public async getHighAccessibilityPlaces(
-    minScore: number = 70
+    minScore: number = 70,
+    latitude: number,
+    longitude: number
   ): Promise<PlaceDetail[]> {
     const response = await customAxios.get<PlaceDetail[]>(
       "/api/places/high-accessibility",
       {
         params: {
           minScore,
+          latitude,
+          longitude,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * 특정 위치 주변 장소 데이터 로드
+   * GET /api/places/load-data
+   */
+  public async loadPlacesData(
+    latitude: number,
+    longitude: number,
+    radiusKm: number = 10
+  ): Promise<LoadDataResponse> {
+    const response = await customAxios.get<LoadDataResponse>(
+      "/api/places/load-data",
+      {
+        params: {
+          latitude,
+          longitude,
+          radiusKm,
         },
       }
     );

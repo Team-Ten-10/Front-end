@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
-import Token from "../libs/token/token";
-import { ACCESS_TOKEN_KEY } from "../constants/token.constants";
+import Token from "../../libs/token/token";
+import { ACCESS_TOKEN_KEY } from "../../constants/token.constants";
 
 interface PrivateRouteProps {
   children: React.ReactNode;

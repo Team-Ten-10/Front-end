@@ -16,16 +16,25 @@ import {
   Mic,
   MicOff,
 } from "lucide-react";
+import FilterChipButton from "./FilterChipButton";
+import type { Category } from "../../types/place/place.type";
 
 interface SearchBarProps {
   onSearch: (query: string, category?: string) => void;
+  onFilterClick?: (filterType: string) => void;
+  onCategorySelectAndRecommend: (category: Category) => void;
 }
 
-const SearchBar = ({ onSearch }: SearchBarProps) => {
+const SearchBar = ({
+  onSearch,
+  onFilterClick,
+  onCategorySelectAndRecommend,
+}: SearchBarProps) => {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showCategories, setShowCategories] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
   const categories = [
@@ -50,15 +59,29 @@ const SearchBar = ({ onSearch }: SearchBarProps) => {
   const handleCategorySelect = (value: string) => {
     setSelectedCategory(value);
     setShowCategories(false);
+    setActiveFilter(null); // 카테고리 선택 시 필터 해제
+    if (value) {
+      onCategorySelectAndRecommend(value as Category);
+    }
+  };
+
+  const handleFilterClick = (filterType: string) => {
+    setActiveFilter(activeFilter === filterType ? null : filterType);
+    onFilterClick?.(filterType);
   };
 
   const startVoiceRecognition = () => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+    if (
+      !("webkitSpeechRecognition" in window) &&
+      !("SpeechRecognition" in window)
+    ) {
       alert("음성 인식을 지원하지 않는 브라우저입니다.");
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
 
     recognition.lang = "ko-KR";
@@ -95,7 +118,9 @@ const SearchBar = ({ onSearch }: SearchBarProps) => {
     }
   };
 
-  const currentCategory = categories.find((cat) => cat.value === selectedCategory);
+  const currentCategory = categories.find(
+    (cat) => cat.value === selectedCategory
+  );
   const CurrentIcon = currentCategory?.Icon || LayoutGrid;
 
   return (
@@ -128,7 +153,9 @@ const SearchBar = ({ onSearch }: SearchBarProps) => {
 
               <button
                 type="button"
-                onClick={isListening ? stopVoiceRecognition : startVoiceRecognition}
+                onClick={
+                  isListening ? stopVoiceRecognition : startVoiceRecognition
+                }
                 className={`ml-2 p-2 rounded-full transition-colors ${
                   isListening
                     ? "bg-red-50 hover:bg-red-100 text-red-600"
@@ -194,15 +221,24 @@ const SearchBar = ({ onSearch }: SearchBarProps) => {
 
       {/* 빠른 필터 칩 */}
       <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
-        <button className="shrink-0 px-4 py-2 bg-white rounded-full shadow text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-          휠체어 접근 가능
-        </button>
-        <button className="shrink-0 px-4 py-2 bg-white rounded-full shadow text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-          내 주변
-        </button>
-        <button className="shrink-0 px-4 py-2 bg-white rounded-full shadow text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-          높은 접근성
-        </button>
+        <FilterChipButton
+          label="휠체어 접근 가능"
+          filterType="wheelchair"
+          isActive={activeFilter === "wheelchair"}
+          onClick={handleFilterClick}
+        />
+        <FilterChipButton
+          label="내 주변"
+          filterType="nearby"
+          isActive={activeFilter === "nearby"}
+          onClick={handleFilterClick}
+        />
+        <FilterChipButton
+          label="높은 접근성"
+          filterType="highAccessibility"
+          isActive={activeFilter === "highAccessibility"}
+          onClick={handleFilterClick}
+        />
       </div>
     </div>
   );
