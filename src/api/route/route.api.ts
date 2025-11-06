@@ -20,7 +20,6 @@ class RouteApi {
         endLng,
       },
     });
-    console.log("RouteApi response:", response);
     return response.data;
   }
 }

@@ -17,6 +17,8 @@ import type {
 import type { RoutePoint } from "../../types/route/route.type";
 import { debounce } from "lodash";
 import { LocateFixed } from "lucide-react";
+import "./loading.css";
+import LoadingEffect from "../../components/common/LoadingEffect";
 
 const MainPage = () => {
   const [userLocation, setUserLocation] = useState<{
@@ -35,7 +37,8 @@ const MainPage = () => {
   const [selectedPlace, setSelectedPlace] = useState<PlaceDetail | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
-  const [, setIsLoadingPlaces] = useState(false);
+  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+  const [map, setMap] = useState<kakao.maps.Map | null>(null);
 
   // 길찾기 입력 상태 추가
   const [startInput, setStartInput] = useState<string>(
@@ -140,7 +143,6 @@ const MainPage = () => {
       // 지도 중심을 출발지로 이동
       setMapCenter(start);
 
-      console.log(start.lat, start.lng, endCoords.lat, endCoords.lng);
       // 서버에 GET 쿼리로 요청 전송
       const route = await fetchAccessibleRoute(
         start.lat,
@@ -163,8 +165,6 @@ const MainPage = () => {
     setEndSuggestions([]);
     setEndSelectedPlace(null);
   };
-
-  console.log(userLocation.lat, userLocation.lng);
 
   useEffect(() => {
     // 사용자 위치 가져오기
@@ -337,19 +337,28 @@ const MainPage = () => {
     }
   };
 
-  const handlePlaceClick = async (place: PlaceDetail) => {
+  const handlePlaceClick = (place: PlaceDetail) => {
     setSelectedPlace(place);
-    setIsLoadingRoute(true);
-    // 지도 중심을 선택한 장소로 이동
-    setMapCenter({ lat: place.latitude, lng: place.longitude });
+    // 지도 중심을 선택한 장소로 부드럽게 이동
+    if (map) {
+      const moveLatLon = new kakao.maps.LatLng(place.latitude, place.longitude);
+      map.panTo(moveLatLon);
+    } else {
+      setMapCenter({ lat: place.latitude, lng: place.longitude });
+    }
+  };
 
+  const handleSetDestination = async () => {
+    if (!selectedPlace) return;
+
+    setIsLoadingRoute(true);
     try {
       // 사용자 위치에서 선택한 장소까지의 경로 가져오기 (GET 쿼리 방식)
       const route = await fetchAccessibleRoute(
         userLocation.lat,
         userLocation.lng,
-        place.latitude,
-        place.longitude
+        selectedPlace.latitude,
+        selectedPlace.longitude
       );
       setRoutePoints(route.routePoint ?? []);
     } catch (error) {
@@ -476,6 +485,7 @@ const MainPage = () => {
         center={mapCenter}
         style={{ width: "100%", height: "100%", position: "absolute" }}
         level={3}
+        onCreate={setMap}
         onCenterChanged={updateCenterWhenMapMoved}
       >
         {/* 사용자 현재 위치 - 파란색 원 */}
@@ -531,76 +541,7 @@ const MainPage = () => {
         />
       </div>
 
-      {/* 길찾기 패널 */}
-      <div className="absolute top-[90px] left-4 z-20 bg-white p-3 rounded-md shadow-md w-[320px]">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium">길찾기</p>
-          <p className="text-xs text-gray-500">
-            {isLoadingRoute ? "로딩..." : ""}
-          </p>
-        </div>
-        <div className="flex gap-2 mb-2">
-          <input
-            className="flex-1 border rounded px-2 py-1 text-sm"
-            placeholder="출발 (lat,lng)"
-            value={startInput}
-            onChange={(e) => setStartInput(e.target.value)}
-          />
-          <button
-            className="text-sm px-2 py-1 bg-gray-100 rounded"
-            onClick={() =>
-              setStartInput(`${userLocation.lat},${userLocation.lng}`)
-            }
-            title="내 위치로 설정"
-          >
-            내위치
-          </button>
-        </div>
-        <div className="mb-3">
-          <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            placeholder="도착 (장소명 또는 lat,lng)"
-            value={endInput}
-            onChange={(e) => {
-              setEndInput(e.target.value);
-              // 입력 도중 사용자가 직접 수정하면 선택된 장소 초기화(이름 불일치 대비)
-              setEndSelectedPlace(null);
-            }}
-          />
-          {/* 도착 자동완성 제안 목록 */}
-          {endSuggestions.length > 0 && (
-            <div className="mt-2 max-h-44 overflow-y-auto border rounded bg-white shadow-sm">
-              {endSuggestions.map((s) => (
-                <button
-                  key={s.id ?? `${s.latitude}-${s.longitude}-${s.name}`}
-                  onClick={() => handleSelectEndSuggestion(s)}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
-                >
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-gray-500">
-                    {s.address ??
-                      `${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)}`}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="flex-1 bg-blue-500 text-white rounded py-1 text-sm"
-            onClick={handleRouteSearch}
-          >
-            경로 찾기
-          </button>
-          <button
-            className="flex-1 bg-gray-200 text-sm rounded py-1"
-            onClick={handleClearRoute}
-          >
-            지우기
-          </button>
-        </div>
-      </div>
+    
 
       <div className="flex flex-col gap-2.5 absolute z-1 top-[100px] right-0 p-2.5">
         <button
@@ -611,12 +552,10 @@ const MainPage = () => {
         </button>
       </div>
 
-      {/* 로딩 인디케이터
+      {/* 로딩 인디케이터 */}
       {isLoadingPlaces && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-6 py-4 rounded-lg shadow-lg z-10">
-          <p className="text-gray-700">장소를 검색하는 중...</p>
-        </div>
-      )} */}
+        <LoadingEffect />
+      )}
 
       {/* 검색 결과 없음
       {!isLoadingPlaces && places.length === 0 && (
@@ -640,6 +579,7 @@ const MainPage = () => {
             setRoutePoints([]);
           }}
           isLoadingRoute={isLoadingRoute}
+          onSetDestination={handleSetDestination}
         />
       )}
     </div>
